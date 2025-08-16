@@ -4,7 +4,7 @@ Preprocess poker hands dataset with masking and Monte Carlo equity labels.
 
 This script processes NDJSON poker hand histories, applies masking to hide opponent information,
 and calculates Monte Carlo equity values for each hand. The output is a preprocessed
-dataset ready for training probes.
+dataset ready for training linear probes.
 """
 
 import os
