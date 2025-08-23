@@ -33,7 +33,7 @@ This project investigates whether and how language models develop internal repre
 - **`linear_probe_for_hand_rank.py`** - Extract hand strength representations
 - **`linear_probe_for_hand_rank_select.py`** - Selective hand rank probing with advanced techniques
 - **`mlp_probe_equity.py`** - Multi-layer perceptron probes for equity prediction
-##### Note: Some probes require the use of Modal, here is the Modal [Documentation](https://modal.com/docs)
+##### Note: Some probes require the use of Modal, here is the [Modal Documentation](https://modal.com/docs)
 
 #### Utilities
 - **`formatFromNDJSON.py`** - Converts a single playthrough into the proper formatting for the model inference.
