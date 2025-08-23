@@ -33,10 +33,10 @@ This project investigates whether and how language models develop internal repre
 - **`linear_probe_for_hand_rank.py`** - Extract hand strength representations
 - **`linear_probe_for_hand_rank_select.py`** - Selective hand rank probing with advanced techniques
 - **`mlp_probe_equity.py`** - Multi-layer perceptron probes for equity prediction
+##### Note: Some probes require the use of Modal, here is the Modal [Documentation](https://modal.com/docs)
 
 #### Utilities
-- **`activation_probe.py`** - Extract hidden states and MLP activations for interpretability analysis
-- **`formatFromNDJSON.py`** - Utilities for converting between different data formats
+- **`formatFromNDJSON.py`** - Converts a single playthrough into the proper formatting for the model inference.
 - **`preprocess_equity_dataset.py`** - Preprocessing pipeline for equity prediction tasks
 
 ## Quick Start
@@ -99,6 +99,8 @@ python mlp_probe_equity.py \
     --model artifacts/checkpoints/poker_model \
     --data data/hands.ndjson \
     --output_dir probe_results/equity
+ # If using Modal, use modal run <script_name>
+ # Note that you may have to change some of the Modal code (such as name) to adapt it to your Modal volume.
 ```
 
 ### 5. Run Inference
