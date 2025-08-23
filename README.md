@@ -19,9 +19,6 @@ This project investigates whether and how language models develop internal repre
 - **`gen.py`** - PHH Six-Max Poker Log Generator using CPU-based Monte Carlo equity estimation
 - **`gen_torch.py`** - CUDA-accelerated version with PyTorch for faster equity calculations and batch processing
 
-#### Training Systems  
-- **`probe_trainer.py`** - Train linear probes on GPT-2 representations
-
 ### pokerGPT/ Directory
 
 #### Core Training Pipeline
@@ -54,9 +51,6 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # Install dependencies
 cd pokerGPT
 pip install -r requirements.txt
-
-# For CUDA acceleration (optional)
-pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ### 2. Generate Training Data
