@@ -144,7 +144,7 @@ def run_activation_visualization(ckpt_dir: str, tokenizer_dir: str, data_dir: st
     X_text, y = np.array(X_text), np.array(y)
     unique_labels = np.unique(y)
     counts = np.array([np.sum(y == label) for label in unique_labels])
-    target_count = max(int(np.percentile(counts, 40)), 10)
+    target_count = max(int(np.percentile(counts, 30)), 10)
     print("Target samples per class (approx.):", target_count)
 
     balanced_X, balanced_y = [], []
@@ -175,7 +175,7 @@ def run_activation_visualization(ckpt_dir: str, tokenizer_dir: str, data_dir: st
     # ---------------------------
     # PCA / t-SNE / UMAP + Scatterplots
     # ---------------------------
-    os.makedirs("activation_plots/pca_and_others300kTrain", exist_ok=True)
+    os.makedirs("NeurIPS/activation_plots/pca_and_others100kTrainSplit", exist_ok=True)
     for layer_idx, hidden_layer in enumerate(hidden_states):
         print(f"Processing layer {layer_idx}...")
         hidden_avg = hidden_layer.mean(dim=1).cpu().numpy()  # [batch, hidden_dim]
@@ -204,7 +204,7 @@ def run_activation_visualization(ckpt_dir: str, tokenizer_dir: str, data_dir: st
             plt.ylabel(f"{method_name} 2")
             plt.legend()
             plt.tight_layout()
-            plt.savefig(f"activation_plots/pca_and_others300kTrain/{method_name}_layer_{layer_idx:02d}.png", dpi=300)
+            plt.savefig(f"NeurIPS/activation_plots/pca_and_others100kTrainSplit/{method_name}_layer_{layer_idx:02d}.png", dpi=300)
             plt.close()
 
         plot_scatter(hidden_pca, "PCA")
@@ -212,7 +212,7 @@ def run_activation_visualization(ckpt_dir: str, tokenizer_dir: str, data_dir: st
         plot_scatter(hidden_umap, "UMAP")
 
     # print("Activation plots saved in 'activation_plots/pca_and_others200kTest'") for 200k Test Dataset.
-    print("Activation plots saved in 'activation_plots/pca_and_others300kTrain'")
+    print("Activation plots saved in 'NeurIPS/activation_plots/pca_and_others100kTrainSplit/'")
 
 # ---------------------------
 # Local entrypoint
@@ -220,10 +220,10 @@ def run_activation_visualization(ckpt_dir: str, tokenizer_dir: str, data_dir: st
 @app.local_entrypoint()
 def main():
     run_activation_visualization.remote(
-        ckpt_dir="/data/pokerGPT/artifacts/checkpoints/run1/best",
-        tokenizer_dir="/data/pokerGPT/artifacts/tokenizer",
-        data_dir="/data/pokerGPT/data",
-        max_samples=300000
+        ckpt_dir="/data/pokerGPT/artifacts/checkpointsNewModel50Epochs/best",
+        tokenizer_dir="/data/pokerGPT/artifacts/tokenizer/tokenizer",
+        data_dir="/data/pokerGPT/NeurIPS/probeDataTrain",
+        max_samples=100000
     )
 
 if __name__ == "__main__":

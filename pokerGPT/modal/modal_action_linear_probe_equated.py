@@ -46,7 +46,20 @@ def get_label_from_item(item):
 def remove_action_token(item):
     return " ".join(tok for tok in item.strip().split() if tok not in ACTIONS)
 
-def load_dataset(data_path, max_samples=None):
+def load_dataset(data_path, max_samples=None, balance=True, percentile=40):
+    """
+    Loads the dataset and optionally balances classes by downsampling.
+    
+    Args:
+        data_path (str): Directory containing .ndjson files
+        max_samples (int, optional): Hard cap on total number of samples
+        balance (bool): If True, balance action classes
+        percentile (int): Percentile of action counts to use as cutoff
+    
+    Returns:
+        X_text (list[str]): Tokenized game states without action tokens
+        y (np.ndarray): Labels corresponding to actions
+    """
     X_text, y = [], []
     for name in os.listdir(data_path):
         if not name.endswith(".ndjson"):
@@ -63,10 +76,47 @@ def load_dataset(data_path, max_samples=None):
                         X_text.append(remove_action_token(item))
                         y.append(label)
                     if max_samples and len(X_text) >= max_samples:
-                        return X_text, np.array(y)
-    return X_text, np.array(y)
+                        X_text, y = np.array(X_text), np.array(y)
+                        return balance_dataset(X_text, y, percentile) if balance else (X_text, y)
 
-def plot_confusion_matrix(cm, layer_idx, save_dir="NeurIPS/confusion_matrices/actionIdentification30Test/"):
+    X_text, y = np.array(X_text), np.array(y)
+    return balance_dataset(X_text, y, percentile) if balance else (X_text, y)
+
+
+def balance_dataset(X_text, y, percentile=40):
+    """
+    Downsample actions so that each class has ~the same number of samples.
+    """
+    from collections import Counter
+    rng = np.random.default_rng(42)
+
+    counts = Counter(y)
+    print("Original class distribution:", counts)
+
+    # Compute target count: e.g. 40th percentile of class counts
+    target_count = max(int(np.percentile(list(counts.values()), percentile)), 10)
+    print(f"Target per-class count: {target_count}")
+
+    X_balanced, y_balanced = [], []
+    for action in np.unique(y):
+        idxs = np.where(y == action)[0]
+        if len(idxs) > target_count:
+            idxs = rng.choice(idxs, size=target_count, replace=False)
+        # if smaller, keep all
+        for i in idxs:
+            X_balanced.append(X_text[i])
+            y_balanced.append(y[i])
+
+    # Shuffle once balanced
+    idxs = rng.permutation(len(X_balanced))
+    X_balanced = np.array(X_balanced)[idxs]
+    y_balanced = np.array(y_balanced)[idxs]
+
+    print("Balanced class distribution:", Counter(y_balanced))
+    return X_balanced.tolist(), y_balanced
+
+
+def plot_confusion_matrix(cm, layer_idx, save_dir="NeurIPS/confusion_matrices/actionIdentificationEquated30TestLP/"):
     os.makedirs(save_dir, exist_ok=True)
     plt.figure(figsize=(5,4))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
@@ -117,7 +167,7 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
     print(f"Loaded {len(X_text)} samples.")
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X_text, y, test_size=0.3, random_state=42, stratify=y
+        X_text, y, test_size=0.2, random_state=42, stratify=y
     )
 
     print("Tokenizing...")
@@ -153,7 +203,7 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
         cm = confusion_matrix(y_test, preds)
         plot_confusion_matrix(cm, layer_idx)
 
-    print("Probing complete. Confusion matrices saved in 'NeurIPS/confusion_matrices/actionIdentification30Test/'.")
+    print("Probing complete. Confusion matrices saved in 'NeurIPS/confusion_matrices/actionIdentificationEquated30TestLP/'.")
 
 # ---------------------------
 # Local entrypoint for testing
@@ -164,7 +214,7 @@ def main():
         ckpt_dir="/data/pokerGPT/artifacts/checkpointsNewModel50Epochs/best",
         tokenizer_dir="/data/pokerGPT/artifacts/tokenizer/tokenizer/",
         data_dir="/data/pokerGPT/NeurIPS/probeDataTrain",
-        max_samples=30000
+        max_samples=150000
     )
 
 if __name__ == "__main__":

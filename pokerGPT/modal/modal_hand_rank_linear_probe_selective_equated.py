@@ -196,7 +196,7 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
 
     # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(
-        X_text, y, test_size=0.2, random_state=42, stratify=y
+        X_text, y, test_size=0.3, random_state=42, stratify=y
     )
 
     print("Tokenizing...")
@@ -214,7 +214,7 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
         hidden_test  = outputs_test.hidden_states
 
     print("Running probes...")
-    os.makedirs("confusion_matrices/handRankSelectEquated300k", exist_ok=True)
+    os.makedirs("confusion_matrices/handRankSelectEquated30Test", exist_ok=True)
     for layer_idx, (h_train, h_test) in enumerate(zip(hidden_train, hidden_test)):
         emb_train = h_train.mean(dim=1).cpu().numpy()
         emb_test  = h_test.mean(dim=1).cpu().numpy()
@@ -231,7 +231,7 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
         labels = np.unique(y)
         cm = confusion_matrix(y_test, preds, labels=labels)
 
-        os.makedirs("confusion_matrices/handRankSelect", exist_ok=True)
+        os.makedirs("NeurIPS/confusion_matrices/handRankSelectLP30Test", exist_ok=True)
         plt.figure(figsize=(8,6))
         plt.imshow(cm, cmap="Blues", interpolation="nearest")
         plt.title(f"Layer {layer_idx:02d} Confusion Matrix")
@@ -245,10 +245,10 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
             for j in range(len(labels)):
                 plt.text(j, i, cm[i, j], ha="center", va="center", color="black")
         plt.tight_layout()
-        plt.savefig(f"confusion_matrices/handRankSelectEquated300k/confusion_matrix_layer_{layer_idx:02d}.png", dpi=300)
+        plt.savefig(f"NeurIPS/confusion_matrices/handRankSelectLP30Test/confusion_matrix_layer_{layer_idx:02d}.png", dpi=300)
         plt.close()
 
-    print("Probing complete. Confusion matrices saved in 'confusion_matrices/handRankSelectEquated300k/'.")
+    print("Probing complete. Confusion matrices saved in 'NeurIPS/confusion_matrices/handRankSelectLP30Test/'.")
 
 
 # ---------------------------
@@ -257,9 +257,9 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
 @app.local_entrypoint()
 def main():
     run_probing.remote(
-        ckpt_dir="/data/pokerGPT/artifacts/checkpoints/run1/best",
-        tokenizer_dir="/data/pokerGPT/artifacts/tokenizer",
-        data_dir="/data/pokerGPT/data",
+        ckpt_dir="/data/pokerGPT/artifacts/checkpointsNewModel50Epochs/best",
+        tokenizer_dir="/data/pokerGPT/artifacts/tokenizer/tokenizer",
+        data_dir="/data/pokerGPT/NeurIPS/probeDataTrain",
         max_samples=300000
     )
 

@@ -3,34 +3,15 @@ import os
 import json
 import numpy as np
 import torch
-from transformers import AutoModel, PreTrainedTokenizerFast
+from transformers import AutoModel
 from tokenizers import Tokenizer
+from transformers import PreTrainedTokenizerFast
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from collections import Counter
-import modal
-
-# ---------------------------
-# Modal App Setup
-# ---------------------------
-app = modal.App("poker-gpt-hand-probing")
-vol = modal.Volume.from_name("pokerGPTTSMA")
-
-image = (
-    modal.Image.from_registry("pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel")
-    .pip_install(
-        "transformers>=4.41.0",
-        "tokenizers>=0.15.2",
-        "torch>=2.2.0",
-        "numpy>=1.24.0",
-        "matplotlib==3.10.3",
-        "scikit-learn==1.7.0",
-        "modal==1.1.2"
-    )
-)
 
 # ---------------------------
 # Card utilities
@@ -38,8 +19,12 @@ image = (
 RANKS = "23456789TJQKA"
 
 def parse_hand_string(hand_str):
+    """Split a string like '2hAc' into ['2h','Ac']"""
     return [hand_str[i:i+2] for i in range(0, len(hand_str), 2)]
 
+# ---------------------------
+# Hand evaluator
+# ---------------------------
 def evaluate_hand(hole_cards, board_cards):
     all_cards = hole_cards + board_cards
     ranks = [c[0] for c in all_cards]
@@ -95,7 +80,7 @@ def evaluate_hand(hole_cards, board_cards):
         return "high_card"
 
 # ---------------------------
-# Dataset loader
+# Dataset loader with filtering
 # ---------------------------
 def get_player1_data(data_path, max_samples=None, min_count=2):
     X_text, y = [], []
@@ -122,28 +107,21 @@ def get_player1_data(data_path, max_samples=None, min_count=2):
                         break
 
     y = np.array(y)
+    # Filter out rare hand ranks
     rank_counts = Counter(y)
     valid_ranks = {rank for rank, count in rank_counts.items() if count >= min_count}
     X_filtered = [x for x, label in zip(X_text, y) if label in valid_ranks]
     y_filtered = np.array([label for label in y if label in valid_ranks])
+
     return X_filtered, y_filtered
 
 # ---------------------------
-# Modal probing function
+# Main linear probe
 # ---------------------------
-@app.function(
-    image=image,
-    gpu="H200",
-    cpu=4,
-    memory=24*1024,
-    timeout=60*60*6,
-    volumes={"/data": vol}
-)
-def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: int = 300000):
-    os.chdir("/data")
-    print("Loading tokenizer...")
+def main():
+    # Tokenizer + model
     tokenizer = PreTrainedTokenizerFast(
-        tokenizer_object=Tokenizer.from_file(os.path.join(tokenizer_dir, "tokenizer.json"))
+        tokenizer_object=Tokenizer.from_file("artifacts/tokenizer/tokenizer.json")
     )
     tokenizer.add_special_tokens({
         "pad_token": "<PAD>",
@@ -151,43 +129,35 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
         "bos_token": "<BOS>",
         "eos_token": "<EOS>"
     })
-
-    print("Loading model...")
-    model = AutoModel.from_pretrained(ckpt_dir)
+    model = AutoModel.from_pretrained("artifacts/checkpoints/run1/best")
     model.eval()
     for p in model.parameters():
         p.requires_grad = False
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-
-    print("Loading dataset...")
-    X_text, y = get_player1_data(data_dir, max_samples=max_samples, min_count=2)
+    # Load dataset
+    X_text, y = get_player1_data("data", max_samples=300000, min_count=2)
     print(f"Loaded {len(X_text)} samples for probing.")
     if len(X_text) == 0:
         print("No hands found for player1!")
         return
 
+    # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(
-        X_text, y, test_size=0.3, random_state=42, stratify=y
+        X_text, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    print("Tokenizing...")
+    # Tokenize
     tokens_train = tokenizer(X_train, return_tensors="pt", padding=True, truncation=True)
-    tokens_test  = tokenizer(X_test, return_tensors="pt", padding=True, truncation=True)
+    tokens_test  = tokenizer(X_test,  return_tensors="pt", padding=True, truncation=True)
 
-    # ---- Move tensors to same device as model ----
-    tokens_train = {k: v.to(device) for k, v in tokens_train.items()}
-    tokens_test  = {k: v.to(device) for k, v in tokens_test.items()}
-
-    print("Extracting hidden states...")
+    # Get hidden states
     with torch.no_grad():
         outputs_train = model(**tokens_train, output_hidden_states=True)
         outputs_test  = model(**tokens_test,  output_hidden_states=True)
         hidden_train = outputs_train.hidden_states
         hidden_test  = outputs_test.hidden_states
 
-    print("Running probes...")
+    # Probe each layer
     for layer_idx, (h_train, h_test) in enumerate(zip(hidden_train, hidden_test)):
         emb_train = h_train.mean(dim=1).cpu().numpy()
         emb_test  = h_test.mean(dim=1).cpu().numpy()
@@ -201,10 +171,12 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
         acc = accuracy_score(y_test, preds)
         print(f"Layer {layer_idx:02d} accuracy: {acc:.4f}")
 
+        # Confusion matrix
         labels = np.unique(y)
         cm = confusion_matrix(y_test, preds, labels=labels)
 
-        os.makedirs("NeurIPS/confusion_matrices/handRankSelect30Test", exist_ok=True)
+        # Plot and save
+        os.makedirs("confusion_matrices/handRankBinary", exist_ok=True)
         plt.figure(figsize=(8,6))
         plt.imshow(cm, cmap="Blues", interpolation="nearest")
         plt.title(f"Layer {layer_idx:02d} Confusion Matrix")
@@ -218,22 +190,8 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
             for j in range(len(labels)):
                 plt.text(j, i, cm[i, j], ha="center", va="center", color="black")
         plt.tight_layout()
-        plt.savefig(f"NeurIPS/confusion_matrices/handRankSelect30Test/confusion_matrix_layer_{layer_idx:02d}.png", dpi=300)
+        plt.savefig(f"confusion_matrices/handRankBinary/confusion_matrix_layer_{layer_idx:02d}.png", dpi=300)
         plt.close()
-
-    print("Probing complete. Confusion matrices saved in 'NeurIPS/confusion_matrices/handRankSelect30Test/'.")
-
-# ---------------------------
-# Local entrypoint
-# ---------------------------
-@app.local_entrypoint()
-def main():
-    run_probing.remote(
-        ckpt_dir="/data/pokerGPT/artifacts/checkpointsNewModel50Epochs/best",
-        tokenizer_dir="/data/pokerGPT/artifacts/tokenizer/tokenizer",
-        data_dir="/data/pokerGPT/NeurIPS/probeDataTrain",
-        max_samples=100000
-    )
 
 if __name__ == "__main__":
     main()

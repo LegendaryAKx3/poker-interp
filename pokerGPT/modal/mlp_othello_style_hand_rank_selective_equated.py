@@ -134,15 +134,14 @@ def get_player1_data(data_path, max_samples=None, min_count=2):
 class MLPProbe(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_classes):
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, num_classes)
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, num_classes)
+        )
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        return self.net(x)
 
 # ---------------------------
 # Modal probing function
@@ -189,7 +188,7 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
     counts = np.array([np.sum(y == label) for label in unique_labels])
     print("Class counts before balancing:", dict(zip(unique_labels, counts)))
 
-    target_count = max(int(np.percentile(counts, 40)), 10)
+    target_count = max(int(np.percentile(counts, 30)), 10)
     print("Target samples per class (approx.):", target_count)
 
     balanced_X, balanced_y = [], []
@@ -237,7 +236,7 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
     # ---------------------------
     # Run MLP probe on each layer
     # ---------------------------
-    os.makedirs("NeurIPS/confusion_matrices/HandRankSelectEquatedTest30Set", exist_ok=True)
+    os.makedirs("NeurIPS/confusion_matrices/HandRankSelectEquatedTest30SetMLPOthelloStyle30th", exist_ok=True)
 
     for layer_idx, (h_train, h_test) in enumerate(zip(hidden_train, hidden_test)):
         emb_train = h_train.mean(dim=1)
@@ -287,10 +286,10 @@ def run_probing(ckpt_dir: str, tokenizer_dir: str, data_dir: str, max_samples: i
                 for j in range(len(unique_labels)):
                     plt.text(j, i, cm[i, j], ha="center", va="center", color="black")
             plt.tight_layout()
-            plt.savefig(f"NeurIPS/confusion_matrices/HandRankSelectEquatedTest30Set/confusion_matrix_layer_{layer_idx:02d}.png", dpi=300)
+            plt.savefig(f"NeurIPS/confusion_matrices/HandRankSelectEquatedTest30SetMLPOthelloStyle30th/confusion_matrix_layer_{layer_idx:02d}.png", dpi=300)
             plt.close()
 
-    print("MLP probing complete. Confusion matrices saved in 'NeurIPS/confusion_matrices/HandRankSelectEquatedTest30Set/'.")
+    print("MLP probing complete. Confusion matrices saved in 'NeurIPS/confusion_matrices/HandRankSelectEquatedTest30SetMLPOthelloStyle30th/'.")
 
 # ---------------------------
 # Local entrypoint

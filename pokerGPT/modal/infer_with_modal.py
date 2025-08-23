@@ -82,9 +82,9 @@ def infer(ckpt: str, tokenizer_dir: str, context: str, max_new_tokens: int = 64,
 def main():
     # Example usage
     infer.remote(
-        ckpt="/data/pokerGPT/artifacts/checkpoints/run1/best",
-        tokenizer_dir="/data/pokerGPT/artifacts/tokenizer/",
-        context='d dh p1 2hAc | d dh p2 8hQs | d dh p3 3cKc | d dh p4 8c7s | d dh p5 7dAs | d dh p6 Th8s | p3 f | p4 f | p5 cc | p6 cc | p1 cc | p2 cc | d db 6dTs7h | p1 cc | p2 cc | p5 cc | d db 9h | p1 cc | p2 cc | p5 cc | d db 9d | p1 cc | p2 cbr 640 | p5 cc | p6 cbr 2795 | p1 f | p2 cbr 9800 | p5 f | p6 cc | p2 sm 8hQs | p6 sm Th8s' ,
+        ckpt="/data/pokerGPT/artifacts/checkpointsNewModel50Epochs/best",
+        tokenizer_dir="/data/pokerGPT/artifacts/tokenizer/tokenizer/",
+        context='d dh p1 8h5s | d dh p2 5d2d | d dh p3 QdTd | d dh p4 3h7d | d dh p5 Jd6d | d dh p6 9d3c | p3 f | p4 f | p5 cc | p6 cc | p1 f | p2 cc | d db Kh6c2h | p2 cc | p5 cbr 130 | p6 f | p2 cc | p5 cbr 260 | p2 cbr 770 | p5 cc | d db 2s | p2 cc | d db 2c | p2 cbr 2905 | p5 cbr 5810 | p2 cc | p5 cbr 8715 | p2 cc | p5 cc | p2 sm 5d2d | p5 sm Jd6d' ,
         max_new_tokens=40,
         temp=0.8,
         top_p=0.95
